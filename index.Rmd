@@ -10,10 +10,10 @@ output: github_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-I started the task by generally exploring the data and thinking about how this data can help to solve a business problem for PFA. A common EDA does not seem to be appropriate as the data is already aggregated and presented as analysis results. Because of this, I choose to do a correlation analysis of variables that may be of interest for PFA such as the relationship between offering treatment programs and the overall workability. Ideally I would like to use the raw data of the 50000 respondents, but as this is not available, I am basing the analysis on the aggregated data. In the end of the analysis, I am using the results of the correlation analysis to create clusters of job profiles that could be a potential target group for PFA products and services. 
+I started the task by generally exploring the data and thinking about how this data can help to solve a business problem for PFA. A common EDA does not seem to be appropriate as the data is already aggregated and presented as analysis results. Because of this, I choose to do a correlation analysis of variables that may be of interest for PFA such as the relationship between offering treatment programs and the overall workability. Ideally I would like to use the raw data of the 50000 respondents, but as this is not available, I am basing the analysis on the aggregated data. In the end of the analysis, I am using the results of the correlation analysis to create clusters of job profiles that could be used as a target group for marketing regarding PFA products and services. 
 
 ## Load packages and data
-Instead of joining the received datasets with the ones from prior years, I used the full dataset that was accesible via the NFA.
+Instead of joining the received datasets with the ones from prior years, I use the full dataset that is accesible via the NFA.
 ```{r, message=FALSE, warning=FALSE}
 library(readxl)
 library(tidyverse)
@@ -48,7 +48,7 @@ data <- data_raw %>%
 ```
 
 ## Tidy data
-To perform a correlation analysis, I reshaped the data from a long into a tidy wide format in which each row is a different job profile and each column is a variable that is related to the survey questions.
+To perform a correlation analysis, I reshape the data from a long into a tidy wide format in which each row is a different job profile and each column is a variable that is related to the survey questions (topics).
 ```{r}
 # From long to wide
 data_wide <- data %>%
@@ -62,6 +62,14 @@ data_wide <- data %>%
 
 head(data_wide)
 ```
+
+### A basic summary of the data 
+
+```{r}
+summary(data_wide)
+```
+
+
 ## Correlation analysis
 ```{r}
 scaled <- scale(data_wide[, -1])
@@ -74,13 +82,14 @@ From the correlation analysis, I derived some insights.
 
 1. Offering sports or general treatment opportunities seems to have positive effects on workability, work related sickness, depression, pain, and vitality
 
-2. Offering support for stopping smoking has only moderate effects on most variables but positive effects on the self-assessed health
+2. Offering support for stopping smoking seems to have only moderate effects on most variables but positive effects on the self-assessed health
 
 3. Offering general health checks seems to have less benefitial effects than general treatment programs and sports offerings
 
 
-```{r}
 # Development over the years
+To see some general trends over time, I plot the main variables of interested for the years 2012, 2014, 2016. and 2018.
+```{r}
 data_wide_years <- data %>%
   select(question, year, score) %>%
   mutate(year = as.character(year)) %>%
@@ -93,10 +102,20 @@ data_wide_years <- data %>%
   mutate_if(is.numeric, scale) %>%
   mutate(year = as.numeric(year))
 
-summary(data_wide_years)
+
 head(data_wide_years)
 
-# Visualization
+```
+
+### A basic summary of the data
+```{r}
+summary(data_wide_years)
+```
+
+### The visualization
+The visualization emphasizes especially the association between the self-assessed health and offers for stopping smoking. It also shows a steep increase in offers for sports. 
+
+```{r}
 ggplot(data_wide_years, aes(x=year), group = 1) + 
   geom_line(aes(y = ArbEvne, colour = "ArbEvne")) + 
   geom_line(aes(y = Behandling, colour = "Behandling")) +
@@ -105,14 +124,22 @@ ggplot(data_wide_years, aes(x=year), group = 1) +
   geom_line(aes(y = Rygestop, colour = "Rygestop"))
 ```
 
-
-```{r} 
 # Cluster Analysis
+We have found out that offering treatment programs, sports, and smoking stopping support can increase work ability and health. For PFA, this means that when customers that are unhealthy are offered, for instance, sports programs, it could increase their health and consequently lower the probability that customers have to use services and treatments that are expensive for PFA. As it can be inefficient to offer sports programs or smoking stopping support to everyone, we conduct a clustering analysis to find job profiles that are in a cluster that shows high potential as it has, for instance, a low average self-assessed health, and so far only little or no smoking stopping support.
+
+
+### Initial model
+```{r} 
 scaled_filt <- dplyr::select(as.data.frame(scaled), SelvHelbred, Rygestop)
 k <- kmeans(scaled_filt[, ], centers = 2, nstart = 25)
 k
 
-# Elbow Plot
+```
+
+
+### Elbow plot 
+To decide how many clusters to use
+```{r}
 wssplot <- function(scaled_filt, nc=15, seed=1234){
   wss <- (nrow(scaled_filt)-1)*sum(apply(scaled_filt,2,var))
   for (i in 2:nc){
@@ -122,11 +149,19 @@ wssplot <- function(scaled_filt, nc=15, seed=1234){
        ylab="Within groups sum of squares")}
 
 wssplot(scaled_filt, nc=10) 
+```
 
+
+### Final Model
+```{r}
 k2 <- kmeans(scaled_filt[, ], centers = 5, nstart = 25)
-k2 #Insight 2 jobs and industries in cluster 1 are potential target groups
+k2
+```
 
-# Target group
+
+### Output 
+Job profiles to target for preventive measures
+```{r}
 clust_data <- cbind(data_wide[, 1], k2$cluster) %>%
   filter(k2$cluster == 2)
 names(clust_data) <- c("group", "cluster")
